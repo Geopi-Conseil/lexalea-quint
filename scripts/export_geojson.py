@@ -35,6 +35,7 @@ Toute évolution du schéma de champs doit être répercutée dans :
 
 import json
 import os
+import re
 
 from qgis.core import (
     NULL,
@@ -79,6 +80,65 @@ _tr = QgsCoordinateTransform(
     QgsCoordinateReferenceSystem("EPSG:2154"),
     QgsCoordinateReferenceSystem("EPSG:4326"),
     proj,
+)
+
+
+# --- Restauration des accents ------------------------------------------
+# Les textes saisis dans la couche QGIS sont sans accents (champs `regime`,
+# `diagnostic`, `zoneRefuge`...). On les restaure à l'export pour que la
+# webmap affiche un français correct ; la couche source n'est pas modifiée.
+# Liste volontairement limitée aux mots présents dans ces textes : tout
+# nouveau mot sans accent doit être ajouté ici.
+# Phrases d'abord (contexte), puis mots.
+PHRASES = [
+    ("etre cale", "être calé"),
+    ("lies a l'existant", "liés à l'existant"),
+    ("l'etat", "l'état"),
+    ("a cet endroit", "à cet endroit"),
+    ("par rapport a la", "par rapport à la"),
+    ("fonctionnelle a justifier", "fonctionnelle à justifier"),
+    ("alea faible a moyen", "aléa faible à moyen"),
+    ("limitee a ", "limitée à "),
+    ("FPRNM a ", "FPRNM à "),
+    ("mises en oeuvre", "mises en œuvre"),
+    ("mise en oeuvre", "mise en œuvre"),
+    ("<=", "≤"),
+]
+WORDS = {
+    "autorisees":"autorisées","autorisee":"autorisée","ecoulement":"écoulement","materiaux":"matériaux",
+    "vulnerables":"vulnérables","etablissements":"établissements","hebergement":"hébergement",
+    "activites":"activités","activite":"activité","memes":"mêmes","meme":"même","regime":"régime",
+    "tres":"très","acces":"accès","securite":"sécurité","legers":"légers","demontables":"démontables",
+    "batiments":"bâtiments","limitees":"limitées","limitee":"limitée","impossibilite":"impossibilité",
+    "etude":"étude","geotechnique":"géotechnique","necessitant":"nécessitant","reseaux":"réseaux",
+    "etanches":"étanches","surexhausse":"surexhaussé","capacite":"capacité","dument":"dûment",
+    "justifiee":"justifiée","adapte":"adapté","exige":"exigé","vulnerabilite":"vulnérabilité",
+    "alea":"aléa","delai":"délai","chiffre":"chiffré","venale":"vénale","eligible":"éligible",
+    "determine":"déterminé","qualifiee":"qualifiée","reserve":"réserve","salaries":"salariés",
+    "lineaire":"linéaire","reference":"référence","surealeve":"surélevé","interpolee":"interpolée",
+    "estime":"estimé","fiabilite":"fiabilité","moderee":"modérée","etage":"étage","donnee":"donnée",
+    "millesime":"millésime","economique":"économique","indeterminee":"indéterminée","habitee":"habitée",
+}
+
+def restore(s):
+    if not isinstance(s, str):
+        return s
+    for a, b in PHRASES:
+        s = s.replace(a, b)
+    def sub(m):
+        w = m.group(0)
+        r = WORDS.get(w.lower())
+        if r is None:
+            return w
+        return r[0].upper() + r[1:] if w[0].isupper() else r
+    s = re.sub(r"[A-Za-z]+", sub, s)
+    s = re.sub(r"(\d) m2\b", r"\1 m²", s)
+    return s
+
+TEXT_FIELDS = (
+    "zoneLabel", "regime", "diagnostic", "zoneRefuge", "refugeCategorie",
+    "eligibiliteFprnm", "hauteurEauNote", "coteReferenceMethode",
+    "etageSource", "typologie", "typologieSource",
 )
 
 
@@ -160,6 +220,9 @@ def export_bati():
             "hauteurEauNote": clean(f["hauteurEauNote"]),
         }
         props = {k: v for k, v in props.items() if v is not None}
+        for k in TEXT_FIELDS:
+            if k in props:
+                props[k] = restore(props[k])
         feats_zone.append({"type": "Feature", "geometry": geom, "properties": props})
 
     write_geojson(os.path.join(OUTPUT_DIR, "batiments_ppri.geojson"), feats_zone)

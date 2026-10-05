@@ -407,7 +407,7 @@
     panelCloseBtn.hidden = false;
     const meta = ZONE_META[code] || { label: code, color: "#9e9e9e", desc: "" };
     panelZoneDot.style.background = meta.color;
-    panelTitle.textContent = `Zone ${meta.label} (${code}) — socle commun`;
+    panelTitle.textContent = `Zone ${meta.label} (${code}) : socle commun`;
     panelSubtitle.textContent = zoneLabel || meta.desc;
 
     const exception = ZONE_EXCEPTIONS[code];
@@ -421,7 +421,7 @@
     if (exception) {
       html += `
         <div class="zone-exception-callout">
-          <strong>Exception pour cette zone —</strong> ${escapeHtml(exception)}
+          <strong>Exception pour cette zone :</strong> ${escapeHtml(exception)}
         </div>
       `;
     }
@@ -993,7 +993,7 @@
   }
 
   function travauxRowHtml(r) {
-    return `<li><strong>${escapeHtml(r.title)}</strong> — ${escapeHtml(r.text)} <span class="travaux-ref">art. ${escapeHtml(r.ref)}</span></li>`;
+    return `<li><strong>${escapeHtml(r.title)}</strong> : ${escapeHtml(r.text)} <span class="travaux-ref">art. ${escapeHtml(r.ref)}</span></li>`;
   }
 
   function travauxListHtml(rules, usage) {
@@ -1412,7 +1412,7 @@
     }
 
     // Zone refuge : condition d'un projet d'extension (et non mesure sur
-    // l'existant) — voir le commentaire de classifyUsage.
+    // l'existant), voir le commentaire de classifyUsage.
     const refugeHtml = hasValue(eff.zoneRefuge)
       ? `<p><strong>🛟 Zone refuge (en cas d'extension) :</strong> ${escapeHtml(eff.zoneRefuge)}</p>`
       : "";
@@ -1547,7 +1547,7 @@
 
     if (appMode === "services") {
       panelZoneDot.style.background = "var(--mode-services)";
-      panelTitle.textContent = "Socle commun — toutes zones inondables";
+      panelTitle.textContent = "Socle commun : toutes zones inondables";
       panelSubtitle.textContent = "Quint-Fonsegrives - PPRi Marcaissonne-Sauneseillonne";
       panelBody.innerHTML = `
         <div class="intro-block intro-block-hero">
@@ -1564,7 +1564,7 @@
               (code) =>
                 `<button type="button" class="zone-chip" style="background:${ZONE_META[code].color}" data-zone="${code}">Zone ${escapeHtml(
                   ZONE_META[code].label
-                )} (${code}) — ${escapeHtml(ZONE_META[code].desc)}</button>`
+                )} (${code}) : ${escapeHtml(ZONE_META[code].desc)}</button>`
             )
             .join("")}
         </div>
@@ -1861,9 +1861,7 @@
       layerKey: "batiments",
       label: "Typologie encore indéterminée",
       // !hasValue(typologieSource) plutôt qu'un préfixe sur le libellé
-      // `typologie` : ce dernier est exporté sans accents (voir
-      // scripts/export_geojson.py), « Typologie indéterminée » (avec accent)
-      // ne le matchait donc jamais et cette tuile affichait toujours 0.
+      // `typologie` : plus robuste si le libellé exporté change.
       predicate: (p) => !hasValue(p.typologieSource),
     },
     {
@@ -2059,7 +2057,7 @@
             <span class="chapitre4-delai">${escapeHtml(item.delai)}</span>
           </div>
           <p>${escapeHtml(item.text)}</p>
-          <div class="chapitre4-ref">Règlement PPRi, §${escapeHtml(item.code)} — public : ${escapeHtml(item.public)}</div>
+          <div class="chapitre4-ref">Règlement PPRi, §${escapeHtml(item.code)} · public : ${escapeHtml(item.public)}</div>
         </div>
       `
       ).join("");

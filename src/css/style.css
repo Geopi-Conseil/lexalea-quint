@@ -1113,7 +1113,7 @@ details.tech-details dd {
    mais en touche discrète plutôt qu'en aplat plein-largeur) et un chevron
    qui pivote à l'ouverture. Utilisé par renderBuildingPanel() (parcours
    Habitants et Services techniques) et par renderZonePanel() (socle commun,
-   parcours Services techniques) — voir src/js/app.js §4 et §4ter. */
+   parcours Services techniques), voir src/js/app.js §4 et §4ter. */
 
 .band-accordion {
   display: flex;

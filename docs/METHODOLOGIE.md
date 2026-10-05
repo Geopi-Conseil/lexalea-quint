@@ -32,7 +32,7 @@ data/*.geojson  →  consommés par src/js/app.js
 
 Chaque bâtiment est rattaché, par jointure spatiale, à la zone du PPRi
 « Marcaissonne-Sauneseillonne » dans laquelle il se trouve (`zoneCode` :
-`Bi`, `Ji`, `Ri`, `GHi` ou `Pi` — voir le glossaire pour le détail de ces
+`Bi`, `Ji`, `Ri`, `GHi` ou `Pi`, voir le glossaire pour le détail de ces
 cinq zones). Les champs `regime`, `zoneRefuge`, `diagnostic`,
 `eligibiliteFprnm` et `etudeGeotechniqueG2` reprennent, pour chaque zone, le
 texte du règlement du PPRi applicable aux constructions existantes et
@@ -68,8 +68,8 @@ l'outil combine deux sources, par ordre de priorité :
    niveau déclaré, un seuil d'environ 5,1 à 5,3 m est utilisé (calibré
    empiriquement). Au-delà, présence d'un étage jugée probable, la
    fiabilité de cette estimation étant qualifiée de « modérée » dans le
-   champ `etageSource` (ex. `"estime par la hauteur (5.1 m), fiabilite
-   moderee"`).
+   champ `etageSource` (ex. `"estimé par la hauteur (5.1 m), fiabilité
+   modérée"`).
 
 Sur les 257 bâtiments concernés : 115 ont un étage (`Oui`), 137 n'en ont pas
 (`Non`), 5 restent `Inconnu`.
@@ -82,8 +82,8 @@ Si aucune des sources n'est disponible, le champ `etagePresent` vaut
 Le texte du champ `zoneRefuge` est celui du règlement du PPRi pour la zone
 concernée. Pour Quint-Fonsegrives, la règle retenue en zones Bi/Ji/Ri est
 **conditionnelle** : si le plancher ne peut pas être calé au-dessus des
-plus hautes eaux connues (PHEC) — impossibilité fonctionnelle dûment
-justifiée — un niveau refuge adapté est exigé (20 m² minimum, hauteur
+plus hautes eaux connues (PHEC), pour cause d'impossibilité fonctionnelle dûment
+justifiée, un niveau refuge adapté est exigé (20 m² minimum, hauteur
 1,80 m minimum). `refugeCategorie` en donne le résumé affiché dans la
 fiche bâtiment.
 
@@ -153,7 +153,7 @@ Champs : `hauteurEauEstimeeM`, `hauteurEauNote`, `altitudeSolLidarHdM`,
    officielle de 10 cm), au centroïde de chaque bâtiment
    (`altitudeSolLidarHdM`). Le sol sous un bâtiment n'étant jamais mesuré
    directement (la toiture bloque le laser), cette valeur est elle-même
-   interpolée par l'IGN à partir des points sol alentour — voir la
+   interpolée par l'IGN à partir des points sol alentour, voir la
    [FAQ](../faq.html).
 3. `hauteurEauEstimeeM` = `coteReferencePheM` − `altitudeSolLidarHdM`. Les
    valeurs négatives (terrain surélevé localement par rapport à la cote de
@@ -236,7 +236,7 @@ BD TOPO.
    nombre de niveaux (`nb_niveau`) prend le pas sur l'estimation par
    hauteur du §3 lorsqu'il est connu.
 4. Traçabilité : le champ `typologieSource` distingue "BD TOPO" (implicite,
-   valeur par défaut) de `"BDNB (Fichiers Fonciers, millesime 2026-02.a)"`,
+   valeur par défaut) de `"BDNB (Fichiers Fonciers, millésime 2026-02.a)"`,
    affiché dans le panneau « Détails techniques » de chaque bâtiment
    concerné.
 
