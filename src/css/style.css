@@ -1385,6 +1385,38 @@ details.correction-block summary {
   color: inherit;
 }
 
+.measure-group-note {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: -2px 0 10px;
+}
+
+.measure-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+.measure-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.measure-list li {
+  margin-bottom: 6px;
+}
+
+.measure-list li:last-child {
+  margin-bottom: 0;
+}
+
 .measure-group-obligatoire {
   background: var(--color-mandatory-bg);
   border: 1px solid var(--color-mandatory-border);

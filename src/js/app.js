@@ -640,21 +640,101 @@
     return `<span class="badge" style="background:${color}">${escapeHtml(text)}</span>`;
   }
 
-  // Classe un texte de mesure (diagnostic, zone refuge...) en obligatoire
-  // (true), recommandé/facultatif (false), ou non applicable (null, exclu
-  // des deux groupes) — voir renderBuildingPanel, bandeau « Mesures ».
-  // Fonctionne à la fois sur les textes réels (ex. zoneRefuge : « Conditionnelle
-  // : si le plancher ne peut pas... un niveau refuge adapté est exigé ») et sur
-  // les textes générés par la correction déclarative (CORRECTION_TEXTS).
-  function classifyMandatory(text) {
-    if (!text) return null;
-    const t = text.toUpperCase();
-    if (t.startsWith("NON REQUISE") || t.startsWith("NON CONCERNE") || t.startsWith("NON DÉTERMINÉ")) return null;
-    if (t.includes("FACULTATIF") || (t.includes("RECOMMAND") && !t.includes("OBLIGATOIRE"))) return false;
-    // Une mesure « conditionnelle » (ex. zone refuge) reste une obligation
-    // réglementaire dès lors que la condition est remplie : traitée comme
-    // obligatoire plutôt que recommandée, par défaut de prudence.
-    return true;
+  /* --- Contextualisation des mesures selon l'usage du bâtiment -------------
+   * Les champs `diagnostic` / `zoneRefuge` du GeoJSON sont identiques pour
+   * tous les bâtiments d'une zone (docs/METHODOLOGIE.md §2) : ils ne tiennent
+   * pas compte de l'usage. Or le chapitre 4 du règlement ne vise pas tout le
+   * monde :
+   *  - §4.2 : l'étude de vulnérabilité ne s'impose qu'aux gestionnaires
+   *    d'ÉTABLISSEMENTS SENSIBLES existants (enseignement, soin, santé,
+   *    secours) : jamais aux habitations ni aux annexes ;
+   *  - §4.3 : obligations pour les biens et activités existants, toutes
+   *    zones inondables, chacune conditionnée à ce que l'on possède
+   *    (cuve, piscine, parking...) ;
+   *  - §4.5 : recommandations (non obligatoires).
+   * La zone refuge n'est pas une mesure sur l'existant : c'est une condition
+   * des projets d'extension (règlement, chapitre 3), affichée avec les
+   * règles de travaux.
+   * L'usage est déduit de `typologie` (BD TOPO / BDNB, ou correction du
+   * visiteur). Usage inconnu ou « activité » : on ne peut pas savoir si
+   * l'établissement est sensible, la mesure est donc présentée sous
+   * condition plutôt que masquée ou affirmée.
+   * ------------------------------------------------------------------- */
+  function classifyUsage(typologie) {
+    const t = (typologie || "").toLowerCase();
+    if (t.startsWith("maison individuelle")) return "individuelle";
+    if (t.startsWith("logement collectif")) return "collectif";
+    if (t.startsWith("annexe")) return "annexe";
+    if (t.startsWith("activit") || t.startsWith("entreprise")) return "activite";
+    return "indetermine";
+  }
+
+  const USAGES_TOUS = ["individuelle", "collectif", "annexe", "activite", "indetermine"];
+
+  // §4.3 du règlement : obligatoires pour les biens et activités existants.
+  const MESURES_4_3 = [
+    {
+      title: "Cuve à gaz ou à mazout, produits polluants ou flottants",
+      text: "Si vous en possédez : mettre en place un dispositif empêchant leur dispersion par les eaux.",
+      usages: USAGES_TOUS,
+    },
+    {
+      title: "Stockage de produits dangereux",
+      text:
+        "Si vous en stockez : mise hors d'eau (liste fixée par la nomenclature des installations classées et le " +
+        "règlement sanitaire départemental).",
+      usages: ["annexe", "activite", "indetermine"],
+    },
+    {
+      title: "Groupe électrogène ou dispositif de fonctionnement autonome",
+      text: "Si vous en avez : mise hors d'eau ou étanchéité du dispositif.",
+      usages: USAGES_TOUS,
+    },
+    {
+      title: "Piscine existante de particulier",
+      text: "Si vous en avez une : balisage visible au-dessus de la cote de référence.",
+      usages: ["individuelle", "collectif", "indetermine"],
+    },
+    {
+      title: "Aire de stationnement privée ou publique",
+      text:
+        "Si vous en gérez une : indiquer l'inondabilité de façon visible pour tout utilisateur et prévoir " +
+        "l'interdiction d'accès et l'évacuation rapide des véhicules en cas de prévision de crue.",
+      usages: ["collectif", "activite", "indetermine"],
+    },
+  ];
+
+  // §4.5 du règlement : recommandations (non obligatoires) pour l'existant.
+  // La mesure d'étanchéité / d'ouverture « fusible » dépend de la hauteur
+  // d'eau (seuil de 1 m) : choisie d'après l'estimation du bâtiment si elle
+  // existe, sinon présentée avec sa condition.
+  function mesuresRecommandees(hauteurEauM) {
+    const items = [];
+    if (hauteurEauM === null || hauteurEauM === undefined || Number.isNaN(hauteurEauM)) {
+      items.push(
+        "Étanchéité des parties du bâtiment situées sous les plus hautes eaux (obturation des ouvertures, " +
+          "relèvement des seuils) si les hauteurs d'eau sont inférieures à 1 m ; ouverture « fusible » en " +
+          "rez-de-chaussée si elles sont supérieures à 1 m."
+      );
+    } else if (hauteurEauM < 1) {
+      items.push(
+        "Étanchéité des parties du bâtiment situées sous les plus hautes eaux (obturation des ouvertures, " +
+          "relèvement des seuils) : la hauteur d'eau estimée pour votre bâtiment est inférieure à 1 m."
+      );
+    } else {
+      items.push(
+        "Ouverture « fusible » en rez-de-chaussée : la hauteur d'eau estimée pour votre bâtiment est supérieure à 1 m."
+      );
+    }
+    items.push(
+      "Dispositif de coupure des réseaux techniques (électricité, gaz, eau) placé au-dessus des plus hautes eaux.",
+      "Compteurs électriques et chaudières au-dessus des plus hautes eaux, ou protégés par un dispositif d'étanchéité.",
+      "Ouverture de dimensions suffisantes pour évacuer les biens déplaçables situés sous les plus hautes eaux.",
+      "Citernes enterrées : remplissage maximum en période propice aux crues, pour les lester.",
+      "Entretien suffisant des fossés et réseaux d'évacuation des eaux pluviales.",
+      "Avant de planter haies ou arbres : conseil technique sur les essences et implantations."
+    );
+    return items;
   }
 
   // Sépare le champ `regime` (voir scripts/export_geojson.py) en ses deux
@@ -681,10 +761,10 @@
    * d'un bâtiment précis (voir docs/METHODOLOGIE.md §3, §8). Un visiteur
    * qui connaît le bâtiment peut préciser deux points ici : la présence
    * d'un étage, et le type d'occupation (avec le nombre de logements).
-   * L'outil recalcule alors la zone refuge, le diagnostic de vulnérabilité,
-   * les obligations liées à la typologie et l'éligibilité FPRNM avec les
-   * mêmes règles et les mêmes textes que ceux appliqués côté données
-   * (docs/METHODOLOGIE.md §4 et §6) - seule la source change.
+   * L'outil recalcule alors les obligations liées à la typologie et
+   * l'éligibilité FPRNM (docs/METHODOLOGIE.md §6), et les mesures affichées
+   * se contextualisent d'elles-mêmes d'après la typologie (classifyUsage) -
+   * seule la source change.
    *
    * La correction reste strictement locale (stockage du navigateur,
    * localStorage) : jamais envoyée, jamais partagée avec les autres
@@ -743,12 +823,6 @@
       "strategique, creation et reconstruction INTERDITES (sauf derogation " +
       "tres encadree). Sinon extension/changement de destination admis a 20% " +
       "sous conditions (PHE+20cm, diagnostic, mitigation).",
-    diagnosticHabitation: "Auto-diagnostic de vulnerabilite (facultatif, a la charge du proprietaire).",
-    diagnosticActivite:
-      "OBLIGATOIRE si ERP 1a3 categorie, etablissement strategique/sensible, " +
-      "ou activite de plus de 20 salaries (a verifier sur site, non " +
-      "deductible de la BD TOPO) ; sinon auto-diagnostic recommande.",
-    diagnosticAnnexe: "Non concerne (annexe).",
     eligibiliteHabitation:
       "Éligible - habitation : Fonds Barnier (FPRNM) à 80% des travaux de " +
       "prévention prescrits par le PPRi, plafond 36 000 €/bien, sous réserve " +
@@ -780,7 +854,6 @@
       eff.typologie = "Maison individuelle";
       eff.typologieSource = "déclaré par vous";
       eff.obligationsTypologie = T.obligationsHabitation;
-      eff.diagnostic = T.diagnosticHabitation;
       eff.eligibiliteFprnm = T.eligibiliteHabitation;
       nbLogements = 1;
     } else if (override.typologieCategorie === "collectif") {
@@ -788,13 +861,11 @@
       eff.typologie = `Logement collectif (${nbLogements} logements)`;
       eff.typologieSource = "déclaré par vous";
       eff.obligationsTypologie = T.obligationsHabitation;
-      eff.diagnostic = T.diagnosticHabitation;
       eff.eligibiliteFprnm = T.eligibiliteHabitation;
     } else if (override.typologieCategorie === "activite") {
       eff.typologie = "Entreprise / activité économique";
       eff.typologieSource = "déclaré par vous";
       eff.obligationsTypologie = T.obligationsActivite;
-      eff.diagnostic = T.diagnosticActivite;
       eff.eligibiliteFprnm = T.eligibiliteActivite;
       nbLogements = 0;
     } else if (override.typologieCategorie === "annexe") {
@@ -803,35 +874,10 @@
       eff.obligationsTypologie = p.annexeMaxM2
         ? `Annexe : creation limitee a ${p.annexeMaxM2} m2 d'emprise au sol au terrain naturel (une fois depuis l'approbation du PPRi).`
         : "Annexe : creation limitee en emprise au sol, voir reglement du PPRi.";
-      eff.diagnostic = T.diagnosticAnnexe;
       eff.eligibiliteFprnm = T.eligibiliteIndeterminee;
       nbLogements = 0;
     }
     if (nbLogements !== null) eff.nbLogements = String(nbLogements);
-
-    // Recalcul de la zone refuge (mêmes règles que docs/METHODOLOGIE.md §4 :
-    // hébergement collectif de plus de 2 logements, quelle que soit la zone).
-    const n = eff.nbLogements != null ? parseInt(eff.nbLogements, 10) : null;
-    if (n && n > 2) {
-      if (eff.etagePresent === "Oui") {
-        eff.zoneRefuge = `OBLIGATOIRE (hébergement collectif, ${n} logements). Aménagement possible sur un niveau existant.`;
-        eff.refugeCategorie = "Obligatoire - avec etage existant";
-      } else if (eff.etagePresent === "Non") {
-        eff.zoneRefuge =
-          `OBLIGATOIRE (hébergement collectif, ${n} logements). ATTENTION : pas d'étage existant ` +
-          `(rez-de-chaussée seul), travaux structurels nécessaires (création/surélévation) pour ` +
-          `disposer d'une zone refuge.`;
-        eff.refugeCategorie = "Obligatoire - sans etage existant";
-      } else {
-        eff.zoneRefuge =
-          `Obligation de zone refuge probable (hébergement collectif, ${n} logements), mais présence ` +
-          `d'un étage inconnue : précisez-la ci-dessus pour connaître les travaux éventuellement nécessaires.`;
-        eff.refugeCategorie = "Obligatoire - à préciser";
-      }
-    } else {
-      eff.zoneRefuge = "Non requise (bâtiment non concerné par l'obligation hébergement collectif >2 logements)";
-      eff.refugeCategorie = "Non requise";
-    }
 
     return eff;
   }
@@ -1005,37 +1051,53 @@
       estimationBody = `<p class="text-muted">Hauteur d'eau non calculée pour ce bâtiment (donnée indisponible, ou terrain localement au-dessus de la cote de référence).</p>`;
     }
 
-    // --- Bandeau « Mesures de protection et d'adaptation » (diagnostic,
-    //     zone refuge, aides financières) ---
-    // Regroupées par caractère obligatoire ou recommandé (clarté visuelle) :
-    // un texte « Non requise »/« Non concerné » n'est ni l'un ni l'autre et
-    // n'est pas affiché ici (rien à faire pour ce bâtiment sur ce point).
+    // --- Bandeau « Mesures de protection et d'adaptation » ---
+    // Contextualisé selon l'usage du bâtiment (voir classifyUsage /
+    // MESURES_4_3 / mesuresRecommandees) : seules les mesures qui peuvent
+    // concerner ce type de bâtiment sont affichées, regroupées par caractère
+    // obligatoire ou recommandé (clarté visuelle).
+    const usage = classifyUsage(eff.typologie);
     const mandatoryBlocks = [];
     const recommendedBlocks = [];
-    if (eff.diagnostic) {
-      const html = `<div class="measure-block"><h4>🔎 Diagnostic de vulnérabilité</h4><p>${escapeHtml(eff.diagnostic)}</p></div>`;
-      const mandatory = classifyMandatory(eff.diagnostic);
-      if (mandatory === true) mandatoryBlocks.push(html);
-      else if (mandatory === false) recommendedBlocks.push(html);
+
+    // §4.2 : étude de vulnérabilité, réservée aux établissements sensibles.
+    // Jamais pour une habitation ou une annexe. Pour une activité (ou un
+    // usage inconnu), la donnée ne dit pas si l'établissement est sensible :
+    // mesure présentée sous condition, avec le détail propre à la zone.
+    if ((usage === "activite" || usage === "indetermine") && eff.diagnostic) {
+      mandatoryBlocks.push(
+        `<div class="measure-block"><h4>🔎 Étude de vulnérabilité <span class="measure-tag">Sous condition</span></h4>` +
+          `<p><strong>Uniquement si votre établissement est « sensible »</strong> (enseignement, soin, santé, secours). ` +
+          `Ne concerne ni les habitations ni les autres activités.</p>` +
+          `<p>${escapeHtml(eff.diagnostic)}</p></div>`
+      );
     }
-    if (eff.zoneRefuge || eff.refugeCategorie) {
-      const refugeText = eff.zoneRefuge || eff.refugeCategorie;
-      const mandatory = classifyMandatory(refugeText);
-      const html =
-        `<div class="measure-block"><h4>🛟 Zone refuge</h4><p>${escapeHtml(refugeText)}</p>` +
-        (mandatory === true
-          ? `<p class="text-muted">Une zone refuge est un niveau du bâtiment situé au-dessus des plus hautes eaux connues, permettant d'attendre les secours en cas de crue.</p>`
-          : "") +
-        `</div>`;
-      if (mandatory === true) mandatoryBlocks.push(html);
-      else if (mandatory === false) recommendedBlocks.push(html);
-    }
+
+    // §4.3 : obligations pour les biens et activités existants, chacune
+    // conditionnée à ce que l'on possède.
+    MESURES_4_3.filter((m) => m.usages.includes(usage)).forEach((m) => {
+      mandatoryBlocks.push(
+        `<div class="measure-block"><h4>${escapeHtml(m.title)}</h4><p>${escapeHtml(m.text)}</p></div>`
+      );
+    });
+
+    // §4.5 : recommandations (non obligatoires).
+    const hauteurEau = hasValue(eff.hauteurEauEstimeeM) ? parseFloat(eff.hauteurEauEstimeeM) : null;
+    recommendedBlocks.push(
+      `<div class="measure-block"><ul class="measure-list">` +
+        mesuresRecommandees(hauteurEau)
+          .map((t) => `<li>${escapeHtml(t)}</li>`)
+          .join("") +
+        `</ul></div>`
+    );
 
     const mesureGroups = [];
     if (mandatoryBlocks.length) {
       mesureGroups.push(`
         <div class="measure-group measure-group-obligatoire">
           <div class="measure-group-head"><span class="measure-group-icon" aria-hidden="true">⚠️</span>Mesures obligatoires</div>
+          <p class="measure-group-note">Obligations du chapitre 4 du règlement, valables dans toute la zone inondable,
+          selon ce que vous possédez. Leurs délais (6 mois à 5 ans après l'approbation du 18/04/2016) sont échus.</p>
           ${mandatoryBlocks.join("")}
         </div>
       `);
@@ -1090,6 +1152,12 @@
       travauxExtraHtml = `<p class="text-muted">Emprise au sol trop réduite pour un calcul de seuil fiable à partir des données disponibles (annexe, abri...). Se référer directement au règlement du PPRi.</p>`;
     }
 
+    // Zone refuge : condition d'un projet d'extension (et non mesure sur
+    // l'existant) — voir le commentaire de classifyUsage.
+    const refugeHtml = hasValue(eff.zoneRefuge)
+      ? `<p><strong>🛟 Zone refuge (en cas d'extension) :</strong> ${escapeHtml(eff.zoneRefuge)}</p>`
+      : "";
+
     const regimeSplit = splitRegime(eff.regime);
     let travauxBody;
     if (regimeSplit) {
@@ -1102,6 +1170,7 @@
           <div class="travaux-card-head"><span class="travaux-icon" aria-hidden="true">🔧</span>Constructions existantes</div>
           <p>${escapeHtml(regimeSplit.existantes)}</p>
           ${eff.obligationsTypologie ? `<p>${escapeHtml(eff.obligationsTypologie)}</p>` : ""}
+          ${refugeHtml}
           ${travauxExtraHtml}
         </div>
       `;
@@ -1109,6 +1178,7 @@
       travauxBody = `
         <p>${escapeHtml(eff.regime || "Consultez le règlement du PPRi pour le régime applicable à ce bâtiment.")}</p>
         ${eff.obligationsTypologie ? `<p>${escapeHtml(eff.obligationsTypologie)}</p>` : ""}
+        ${refugeHtml}
         ${travauxExtraHtml}
       `;
     }
