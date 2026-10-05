@@ -1298,13 +1298,38 @@
     let estimationBody;
     if (hasValue(eff.hauteurEauEstimeeM)) {
       const h = parseFloat(eff.hauteurEauEstimeeM);
+      // Le texte technique `hauteurEauNote` ("Estimation : cote de référence
+      // PHE (...) moins altitude sol LIDAR HD (...)." suivi, selon les cas,
+      // d'une phrase d'explication) est scindé : la première phrase est
+      // remplacée par le détail du calcul replié ci-dessous ; seule la
+      // phrase d'explication éventuelle reste visible.
+      const noteMatch = hasValue(eff.hauteurEauNote)
+        ? String(eff.hauteurEauNote).match(/^.*?NGF\)\.\s*(.*)$/s)
+        : null;
+      const noteExtra = noteMatch ? noteMatch[1].trim() : "";
+      const fmtM = (v) => parseFloat(v).toFixed(2).replace(".", ",") + " m NGF";
+      const detailRows = [];
+      if (hasValue(eff.coteReferencePheM)) {
+        detailRows.push(`<li>Cote de la crue de référence (PHE) : <strong>${fmtM(eff.coteReferencePheM)}</strong></li>`);
+      }
+      if (hasValue(eff.altitudeSolLidarHdM)) {
+        detailRows.push(`<li>Altitude du terrain (LiDAR HD IGN) : <strong>${fmtM(eff.altitudeSolLidarHdM)}</strong></li>`);
+      }
+      const detailHtml = detailRows.length
+        ? `<details class="calc-detail"><summary>Détail du calcul</summary>
+            <ul>${detailRows.join("")}</ul>
+            <p class="text-muted">Hauteur estimée = cote de référence moins altitude du terrain. La cote de référence est
+            interpolée entre les lignes de cote officielles ; si le résultat est négatif, il est ramené à 0.</p>
+          </details>`
+        : "";
       estimationBody = `
         <div class="band-estimation-label">Hauteur d'eau estimée au-dessus de mon 1er plancher</div>
-        <div class="band-estimation-figure">${h.toFixed(2)} m</div>
-        ${eff.hauteurEauNote ? `<p class="text-muted">${escapeHtml(eff.hauteurEauNote)}</p>` : ""}
-        <p class="text-muted">Estimation indicative obtenue par modélisation (altimétrie LiDAR HD et cotes de
-        crue historique officielles), au centroïde du bâtiment. Elle ne remplace pas une étude hydraulique
-        et n'a pas de valeur réglementaire opposable.</p>
+        <div class="band-estimation-figure">${h.toFixed(2).replace(".", ",")} m</div>
+        ${noteExtra ? `<p class="text-muted">${escapeHtml(noteExtra)}</p>` : ""}
+        <p class="text-muted">Estimation indicative, sans valeur réglementaire : cote de la crue de référence moins
+        altitude du terrain, au centre du bâtiment.
+        <a href="faq.html#hauteur-eau" target="_blank" rel="noopener">Comprendre la méthode</a></p>
+        ${detailHtml}
       `;
     } else {
       estimationBody = `<p class="text-muted">Hauteur d'eau non calculée pour ce bâtiment (donnée indisponible, ou terrain localement au-dessus de la cote de référence).</p>`;

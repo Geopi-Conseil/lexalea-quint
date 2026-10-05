@@ -81,21 +81,36 @@
       </p>
     </details>
 
-    <details class="faq-item">
+    <details class="faq-item" id="hauteur-eau">
       <summary>D'où vient la hauteur d'eau estimée affichée pour chaque bâtiment ?</summary>
       <p>
-        Pour Quint-Fonsegrives, les cotes de crue historique (plus hautes eaux
-        connues, PHE) sont disponibles sous forme cartographique (isocotes
-        géoréférencées). L'outil interpole une surface d'eau continue entre
-        ces lignes de cote, puis la compare à l'altitude du sol au droit de
-        chaque bâtiment (Modèle Numérique de Terrain LiDAR HD de l'IGN,
-        précision verticale officielle de 10 cm). La différence donne la
-        hauteur d'eau estimée. C'est une <strong>estimation indicative</strong>,
-        pas un calcul hydraulique réglementaire : le sol sous un bâtiment
-        n'est jamais mesuré directement par le LiDAR (la toiture bloque le
-        laser), il est donc lui-même interpolé à partir des points sol
-        alentour. En cas de doute, le plan officiel des cotes PHE reste
-        consultable auprès de la DDT ou de la mairie.
+        Le calcul est fait en amont, pour chaque bâtiment, en trois étapes :
+      </p>
+      <ol>
+        <li>
+          <strong>La cote de la crue de référence.</strong> Les plus hautes
+          eaux connues (PHE) sont publiées sous forme de lignes de cote
+          (isocotes) sur la carte du PPRi. Entre deux lignes, l'outil
+          interpole une surface d'eau continue.
+        </li>
+        <li>
+          <strong>L'altitude du terrain.</strong> Elle est lue sur le Modèle
+          Numérique de Terrain LiDAR HD de l'IGN (précision verticale
+          officielle de 10 cm), au centre du bâtiment. Le laser ne traverse
+          pas la toiture : le sol sous le bâtiment est donc lui-même estimé à
+          partir des points au sol alentour.
+        </li>
+        <li>
+          <strong>La différence.</strong> Cote de référence moins altitude du
+          terrain : c'est la hauteur d'eau estimée. Si le terrain est plus
+          haut que la cote, la valeur est ramenée à 0.
+        </li>
+      </ol>
+      <p>
+        C'est une <strong>estimation indicative</strong>, pas un calcul
+        hydraulique : elle ne remplace pas une étude et n'a pas de valeur
+        réglementaire opposable. En cas de doute, le plan officiel des cotes
+        PHE reste consultable auprès de la DDT ou de la mairie.
       </p>
     </details>
 
@@ -125,5 +140,15 @@
   </main>
 
   <script src="src/js/nav.js"></script>
+  <script>
+    // Ouvre la question ciblée par l'ancre (ex. faq.html#hauteur-eau).
+    (function () {
+      var el = location.hash && document.getElementById(location.hash.slice(1));
+      if (el && el.tagName === "DETAILS") {
+        el.open = true;
+        el.scrollIntoView();
+      }
+    })();
+  </script>
 </body>
 </html>

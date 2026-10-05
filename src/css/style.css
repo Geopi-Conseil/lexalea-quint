@@ -1217,6 +1217,22 @@ details[open] > .band-head .band-chevron {
   margin: 4px 0 8px;
 }
 
+.calc-detail {
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.calc-detail summary {
+  cursor: pointer;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.calc-detail ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
 .band-estimation-label {
   font-size: 0.75rem;
   font-weight: 700;
