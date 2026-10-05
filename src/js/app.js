@@ -1323,11 +1323,11 @@
           </details>`
         : "";
       estimationBody = `
-        <div class="band-estimation-label">Hauteur d'eau estimée au-dessus de mon 1er plancher</div>
+        <div class="band-estimation-label">Hauteur d'eau estimée au-dessus du terrain, au centre de mon bâtiment</div>
         <div class="band-estimation-figure">${h.toFixed(2).replace(".", ",")} m</div>
         ${noteExtra ? `<p class="text-muted">${escapeHtml(noteExtra)}</p>` : ""}
         <p class="text-muted">Estimation indicative, sans valeur réglementaire : cote de la crue de référence moins
-        altitude du terrain, au centre du bâtiment.
+        altitude du terrain.
         <a href="faq.html#hauteur-eau" target="_blank" rel="noopener">Comprendre la méthode</a></p>
         ${detailHtml}
       `;
