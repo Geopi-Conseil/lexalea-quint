@@ -737,6 +737,279 @@
     return items;
   }
 
+  /* ----------------------------------------------------------------------
+   * Règles de travaux par zone × usage (règlement, chapitre 3)
+   * ----------------------------------------------------------------------
+   * Le champ `regime` du GeoJSON est un texte unique par zone qui énumère
+   * tous les usages. Le règlement, lui, est un tableau « type de travaux ×
+   * prescriptions » propre à chaque zone. On le reprend ici, résumé en
+   * langage clair, pour n'afficher que les lignes qui concernent l'usage du
+   * bâtiment (voir classifyUsage). Chaque ligne cite son numéro d'article
+   * (« réf. ») pour que le lecteur puisse vérifier dans le règlement.
+   *
+   * Zones : Ri = rouge, Ji = jaune, Bi = bleue, GHi = grise hachurée.
+   * Le règlement jaune renvoie « idem zone rouge » pour la plupart des
+   * lignes : elles sont reprises explicitement pour que chaque zone se lise
+   * seule.
+   *
+   * Usage inconnu (« indetermine ») : on montre les lignes d'habitation ET
+   * d'activité plutôt que d'en masquer une, avec un rappel pour corriger.
+   * Résumés fidèles mais non exhaustifs : le règlement fait foi.
+   * ------------------------------------------------------------------- */
+  const U_HAB = ["individuelle", "collectif", "indetermine"];
+  const U_ANNEXE = ["individuelle", "collectif", "annexe", "indetermine"];
+  const U_ACT = ["activite", "indetermine"];
+  const T_PHEC_FLOOR =
+    "premier plancher au-dessus des PHEC (plus hautes eaux connues)";
+  const T_EQUIP =
+    "équipements sensibles (électricité, chaudière…) au-dessus des PHEC ou rendus étanches avec mise hors service automatique ; " +
+    "matériaux peu vulnérables à l'eau sous les PHEC";
+
+  const TRAVAUX_REGLES = {
+    Ri: {
+      nouvelles: {
+        lead:
+          "Interdites en zone rouge, sauf les petites exceptions ci-dessous. Restent aussi interdits : sous-sols, remblais, parkings silos, " +
+          "nouveaux établissements accueillant du public vulnérable et constructions de secours.",
+        items: [
+          { ref: "3.1.2", usages: U_ANNEXE, title: "Abri de jardin, garage ou local de piscine (annexe légère)",
+            text: "20 m² d'emprise au plus, sans habitation, une seule fois par unité foncière depuis l'approbation du PPRi ; " + T_EQUIP + "." },
+          { ref: "3.1.3", usages: U_ANNEXE, title: "Abri ouvert de stationnement (carport)",
+            text: "Ne pas gêner l'écoulement ni le stockage des eaux ; changement de destination interdit." },
+          { ref: "3.1.5", usages: U_ANNEXE, title: "Cabanon de jardinage familial",
+            text: "10 m² par parcelle (50 m² si un bâtiment commun dessert plusieurs parcelles), réservé au matériel de jardin." },
+          { ref: "3.1.7", usages: U_HAB, title: "Piscine de plein air",
+            text: "Margelles au niveau du terrain naturel, ouvrage signalé par un marquage visible au-dessus des PHEC ; équipements techniques protégés." },
+          { ref: "3.1.1", usages: U_ACT, title: "Accès de sécurité extérieurs",
+            text: "Plates-formes, voiries, escaliers hors d'eau pour évacuer le public (valides, handicapées ou brancardées), pour les bâtiments recevant du public." },
+          { ref: "3.1.6", usages: U_ACT, title: "Serre tunnel démontable",
+            text: "Parois relevables pour laisser passer l'eau, implantation dans le sens d'écoulement." },
+          { ref: "3.1.4", usages: USAGES_TOUS, title: "Local technique ou sanitaire lié à l'existant",
+            text: "20 m² d'emprise au plus (sauf impossibilité réglementaire, avec étude hydraulique), sans occupation permanente, plancher hors PHEC ; " + T_EQUIP + "." },
+        ],
+      },
+      existantes: {
+        lead: "Autorisées sous conditions, avec des extensions très limitées.",
+        items: [
+          { ref: "3.2.5", usages: U_HAB, title: "Extension de l'habitation",
+            text: "20 m² d'emprise au plus, une seule fois depuis l'approbation, sans nouveau logement, dans l'ombre hydraulique du bâtiment existant ; " +
+              T_PHEC_FLOOR + " (si impossible pour raison fonctionnelle justifiée : niveau refuge adapté) ; " + T_EQUIP + "." },
+          { ref: "3.2.6", usages: U_ANNEXE, title: "Extension d'une annexe (abri, garage…)",
+            text: "20 m² d'emprise au plus, une seule fois, sans habitation, dans l'ombre hydraulique du bâtiment existant ; " + T_EQUIP + "." },
+          { ref: "3.2.8", usages: U_ACT, title: "Établissement sensible (enseignement, soin, santé)",
+            text: "Extension de 20 % de l'emprise au plus (dans la limite du tiers de la parcelle), une seule fois, sans augmenter la capacité d'accueil ou d'hébergement ; " +
+              T_PHEC_FLOOR + " ; plan de secours obligatoire." },
+          { ref: "3.2.9", usages: U_ACT, title: "ERP, commerce, artisanat, industrie",
+            text: "Extension de 20 % de l'emprise au plus (dans la limite du tiers de la parcelle), une seule fois, sans créer d'hébergement ; " + T_PHEC_FLOOR + "." },
+          { ref: "3.2.10", usages: U_ACT, title: "Bâtiment de sport ou de loisirs",
+            text: "Extension de 20 % de l'emprise au plus, sans créer d'hébergement ; " + T_PHEC_FLOOR + " (sauf impossibilité fonctionnelle avec niveau refuge)." },
+          { ref: "3.2.12", usages: U_ACT, title: "Bâtiment agricole",
+            text: "Extension de 20 % de l'emprise au plus, une seule fois, sans créer d'hébergement ; stockages de produits polluants ou flottants : voir règles générales." },
+          { ref: "3.2.1", usages: USAGES_TOUS, title: "Entretien courant",
+            text: "Façades, toitures, réparations : autorisés, sans aggraver les risques." },
+          { ref: "3.2.3", usages: USAGES_TOUS, title: "Reconstruction après sinistre (hors inondation)",
+            text: "À emprise égale ou inférieure, au-dessus des PHEC, sans nouveau logement. La reconstruction après une inondation n'est pas listée parmi les cas autorisés." },
+          { ref: "3.2.4", usages: USAGES_TOUS, title: "Démolition-reconstruction (mise aux normes, modernisation)",
+            text: "Au-dessus des PHEC, à emprise égale ou inférieure, sans nouveau logement, au même endroit ou en zone de moindre risque ; étude d'ensemble au-delà de 200 m² d'emprise. Hors établissements sensibles." },
+          { ref: "3.2.13", usages: USAGES_TOUS, title: "Local sanitaire ou technique de mise aux normes",
+            text: "Extension de 20 % de l'emprise au plus ; plancher hors PHEC (sauf impossibilité fonctionnelle avec niveau refuge)." },
+          { ref: "3.2.15", usages: USAGES_TOUS, title: "Surélévation pour réduire la vulnérabilité",
+            text: "Plancher du niveau ajouté au-dessus des PHEC, sans nouveau logement." },
+          { ref: "3.2.16", usages: USAGES_TOUS, title: "Changement de destination, aménagements internes",
+            text: "Sans nouveau logement ni augmentation de l'emprise ; plancher hors PHEC (sauf impossibilité avec niveau refuge) ; pas de transformation en établissement sensible, hébergement ou habitation." },
+        ],
+      },
+      phec: "À défaut d'isocote sur la carte de zonage, les PHEC sont prises à +2,50 m au-dessus du terrain naturel.",
+    },
+
+    Ji: {
+      nouvelles: {
+        lead:
+          "Interdites comme en zone rouge, sauf les exceptions ci-dessous (dont des bâtiments agricoles nouveaux). Restent interdits : sous-sols, remblais, " +
+          "nouveaux établissements accueillant du public vulnérable et constructions de secours.",
+        items: [
+          { ref: "3.1.2", usages: U_ANNEXE, title: "Abri de jardin, garage ou local de piscine (annexe légère)",
+            text: "20 m² d'emprise au plus, sans habitation, une seule fois par unité foncière depuis l'approbation du PPRi ; " + T_EQUIP + "." },
+          { ref: "3.1.3", usages: U_ANNEXE, title: "Abri ouvert de stationnement (carport)",
+            text: "Ne pas gêner l'écoulement ni le stockage des eaux ; changement de destination interdit." },
+          { ref: "3.1.5", usages: U_ANNEXE, title: "Cabanon de jardinage familial",
+            text: "10 m² par parcelle (50 m² si un bâtiment commun dessert plusieurs parcelles), réservé au matériel de jardin." },
+          { ref: "3.1.7", usages: U_HAB, title: "Piscine de plein air",
+            text: "Margelles au niveau du terrain naturel, ouvrage signalé par un marquage visible au-dessus des PHEC ; équipements techniques protégés." },
+          { ref: "3.1.1", usages: U_ACT, title: "Accès de sécurité extérieurs",
+            text: "Plates-formes, voiries, escaliers hors d'eau pour évacuer le public, pour les bâtiments recevant du public." },
+          { ref: "3.1.6", usages: U_ACT, title: "Serre tunnel démontable",
+            text: "Parois relevables pour laisser passer l'eau, implantation dans le sens d'écoulement." },
+          { ref: "3.1.8", usages: U_ACT, title: "Habitation de l'exploitant agricole",
+            text: "Seulement si la présence permanente de l'exploitant est nécessaire ; " + T_PHEC_FLOOR + ", implantation dans le sens d'écoulement." },
+          { ref: "3.1.9", usages: U_ACT, title: "Bâtiment agricole (activité, stockage, élevage)",
+            text: "Dans le sens d'écoulement des eaux ou avec transparence hydraulique sous les PHEC ; " + T_EQUIP + "." },
+          { ref: "3.1.10", usages: USAGES_TOUS, title: "Cuve ou silo",
+            text: "Implantés dans le sens d'écoulement, solidement ancrés, avec cuvelage étanche jusqu'aux PHEC." },
+          { ref: "3.1.4", usages: USAGES_TOUS, title: "Local technique ou sanitaire lié à l'existant",
+            text: "20 m² d'emprise au plus (sauf impossibilité réglementaire), sans occupation permanente, plancher hors PHEC ; " + T_EQUIP + "." },
+        ],
+      },
+      existantes: {
+        lead: "Mêmes règles qu'en zone rouge, avec quelques différences signalées ci-dessous.",
+        items: [
+          { ref: "3.2.5", usages: U_HAB, title: "Extension de l'habitation",
+            text: "20 m² d'emprise au plus, une seule fois depuis l'approbation, sans nouveau logement, dans l'ombre hydraulique du bâtiment existant ; " +
+              T_PHEC_FLOOR + " (si impossible pour raison fonctionnelle justifiée : niveau refuge adapté) ; " + T_EQUIP + "." },
+          { ref: "3.2.17", usages: ["individuelle", "indetermine"], title: "Habitation nécessaire à l'exploitation agricole",
+            text: "Extension autorisée avec " + T_PHEC_FLOOR + " (ou niveau refuge adapté si impossibilité fonctionnelle), dans l'ombre hydraulique du bâtiment existant." },
+          { ref: "3.2.6", usages: U_ANNEXE, title: "Extension d'une annexe (abri, garage…)",
+            text: "20 m² d'emprise au plus, une seule fois, sans habitation, dans l'ombre hydraulique du bâtiment existant ; " + T_EQUIP + "." },
+          { ref: "3.2.8", usages: U_ACT, title: "Établissement sensible (enseignement, soin, santé)",
+            text: "Capacité d'accueil ou d'hébergement : +10 % au plus (plus strict qu'en zone rouge). Emprise : +20 % au plus (limite du tiers de la parcelle), une seule fois ; " +
+              T_PHEC_FLOOR + " ; plan de secours obligatoire." },
+          { ref: "3.2.9", usages: U_ACT, title: "ERP, commerce, artisanat, industrie",
+            text: "Extension de 20 % de l'emprise au plus (dans la limite du tiers de la parcelle), une seule fois, sans créer d'hébergement ; " + T_PHEC_FLOOR + "." },
+          { ref: "3.2.10", usages: U_ACT, title: "Bâtiment de sport ou de loisirs",
+            text: "Pas de nouvel hébergement, sauf logement de gardien ; " + T_PHEC_FLOOR + " (sauf impossibilité fonctionnelle avec niveau refuge)." },
+          { ref: "3.2.12", usages: U_ACT, title: "Bâtiment agricole",
+            text: "Extension mesurée et attenante, sans créer d'hébergement, dans l'ombre hydraulique du bâtiment ; pas de plafond de 20 % ; stockages polluants ou flottants : voir règles générales." },
+          { ref: "3.2.1", usages: USAGES_TOUS, title: "Entretien courant",
+            text: "Façades, toitures, réparations : autorisés, sans aggraver les risques." },
+          { ref: "3.2.3", usages: USAGES_TOUS, title: "Reconstruction après sinistre (hors inondation)",
+            text: "À emprise égale ou inférieure, au-dessus des PHEC, sans nouveau logement." },
+          { ref: "3.2.4", usages: USAGES_TOUS, title: "Démolition-reconstruction (mise aux normes, modernisation)",
+            text: "Au-dessus des PHEC, à emprise égale ou inférieure, sans nouveau logement ; étude d'ensemble au-delà de 200 m². Hors établissements sensibles." },
+          { ref: "3.2.13", usages: USAGES_TOUS, title: "Local sanitaire ou technique de mise aux normes",
+            text: "Extension de 20 % de l'emprise au plus ; plancher hors PHEC (sauf impossibilité fonctionnelle avec niveau refuge)." },
+          { ref: "3.2.15", usages: USAGES_TOUS, title: "Surélévation pour réduire la vulnérabilité",
+            text: "Plancher du niveau ajouté au-dessus des PHEC, sans nouveau logement." },
+          { ref: "3.2.16", usages: USAGES_TOUS, title: "Changement de destination, aménagements internes",
+            text: "Sans nouveau logement ni augmentation de l'emprise ; plancher hors PHEC (sauf impossibilité avec niveau refuge) ; pas de transformation en établissement sensible, hébergement ou habitation." },
+        ],
+      },
+      phec: "À défaut d'isocote sur la carte de zonage, les PHEC sont prises à +0,50 m (aléa faible) ou +1 m (aléa moyen) au-dessus du terrain naturel.",
+    },
+
+    Bi: {
+      nouvelles: {
+        lead:
+          "Autorisées sous prescriptions. Restent interdits : création d'établissements sensibles, sous-sols, remblais, " +
+          "constructions de secours et stockage de matières dangereuses non protégé.",
+        items: [
+          { ref: "3.1.2", usages: ["individuelle", "collectif", "activite", "indetermine"], title: "Bâtiment neuf (habitation, activité, ERP)",
+            text: T_PHEC_FLOOR.charAt(0).toUpperCase() + T_PHEC_FLOOR.slice(1) +
+              " ; implantation dans le sens d'écoulement ou avec transparence hydraulique sous les PHEC (sauf bâtiment moins de 1,5 fois plus long que large et de moins de 200 m² d'emprise) ; plan de secours pour les ERP du 1er groupe." },
+          { ref: "3.1.3", usages: U_ANNEXE, title: "Abri de jardin ou garage (annexe légère)",
+            text: "Sans habitation ; " + T_EQUIP + "." },
+          { ref: "3.1.4", usages: U_ANNEXE, title: "Structure couverte et ouverte",
+            text: "Ne pas gêner l'écoulement ni le stockage des eaux." },
+          { ref: "3.1.6", usages: U_ANNEXE, title: "Cabanon de jardinage familial",
+            text: "Matériaux peu vulnérables à l'eau sous les PHEC." },
+          { ref: "3.1.10", usages: U_HAB, title: "Piscine de plein air",
+            text: "Margelles au niveau du terrain naturel, ouvrage signalé par un marquage visible au-dessus des PHEC ; équipements techniques protégés." },
+          { ref: "3.1.1", usages: U_ACT, title: "Accès de sécurité extérieurs",
+            text: "Plates-formes, voiries, escaliers hors d'eau pour évacuer le public, pour les bâtiments recevant du public." },
+          { ref: "3.1.7", usages: U_ACT, title: "Bâtiment agricole (activité, stockage, élevage)",
+            text: "Dans le sens d'écoulement des eaux ou avec transparence hydraulique sous les PHEC ; " + T_EQUIP + "." },
+          { ref: "3.1.8", usages: U_ACT, title: "Serre tunnel démontable",
+            text: "Parois relevables pour laisser passer l'eau." },
+          { ref: "3.1.5", usages: USAGES_TOUS, title: "Local technique ou sanitaire neuf",
+            text: "Sans occupation permanente, plancher hors PHEC (sauf impossibilité fonctionnelle justifiée), sens d'écoulement ou transparence hydraulique ; " + T_EQUIP + "." },
+          { ref: "3.1.9", usages: USAGES_TOUS, title: "Cuve ou silo",
+            text: "Solidement ancrés ; cuvelage étanche jusqu'aux PHEC pour les matières polluantes." },
+        ],
+      },
+      existantes: {
+        lead: "Autorisées sous conditions ; pas de plafond de surface pour les extensions (contrairement aux zones rouge et jaune).",
+        items: [
+          { ref: "3.2.3", usages: U_HAB, title: "Extension de l'habitation",
+            text: T_PHEC_FLOOR.charAt(0).toUpperCase() + T_PHEC_FLOOR.slice(1) +
+              " (sauf impossibilité fonctionnelle avec niveau refuge adapté) ; " + T_EQUIP + "." },
+          { ref: "3.2.4", usages: U_ANNEXE, title: "Extension d'une annexe (abri, garage…)",
+            text: T_EQUIP.charAt(0).toUpperCase() + T_EQUIP.slice(1) + "." },
+          { ref: "3.2.6", usages: U_ACT, title: "Établissement sensible (soin, santé, enseignement)",
+            text: "Premier plancher et équipements sensibles au-dessus des PHEC ; plan de secours adapté obligatoire." },
+          { ref: "3.2.7", usages: U_ACT, title: "ERP, commerce, artisanat, industrie",
+            text: T_PHEC_FLOOR.charAt(0).toUpperCase() + T_PHEC_FLOOR.slice(1) + " ; " + T_EQUIP + "." },
+          { ref: "3.2.8", usages: U_ACT, title: "Bâtiment de sport ou de loisirs",
+            text: T_PHEC_FLOOR.charAt(0).toUpperCase() + T_PHEC_FLOOR.slice(1) + " (sauf impossibilité fonctionnelle avec niveau refuge) ; " + T_EQUIP + "." },
+          { ref: "3.2.9", usages: U_ACT, title: "Bâtiment agricole",
+            text: T_EQUIP.charAt(0).toUpperCase() + T_EQUIP.slice(1) + " ; stockages polluants ou flottants : voir règles générales." },
+          { ref: "3.2.1", usages: USAGES_TOUS, title: "Entretien courant",
+            text: "Façades, toitures, réparations : autorisés, sans aggraver les risques." },
+          { ref: "3.2.2", usages: USAGES_TOUS, title: "Reconstruction après sinistre (hors inondation)",
+            text: "À emprise égale ou inférieure, au-dessus des PHEC, sans nouveau logement." },
+          { ref: "3.2.10", usages: USAGES_TOUS, title: "Local sanitaire ou technique de mise aux normes",
+            text: "Plancher hors PHEC (sauf impossibilité fonctionnelle justifiée) ; " + T_EQUIP + " ; inondabilité du local à signaler." },
+          { ref: "3.2.12", usages: USAGES_TOUS, title: "Surélévation pour réduire la vulnérabilité",
+            text: "Plancher du niveau ajouté au-dessus des PHEC, sans aggraver les risques ailleurs." },
+          { ref: "3.2.13", usages: USAGES_TOUS, title: "Changement de destination, aménagements internes",
+            text: "Sans augmenter l'emprise ni la vulnérabilité ; plancher hors PHEC (sauf impossibilité avec niveau refuge) ; pas de transformation en établissement sensible ; plan de secours pour les ERP du 1er groupe." },
+        ],
+      },
+      phec: "À défaut d'isocote sur la carte de zonage, les PHEC sont prises à +0,50 m (aléa faible) ou +1 m (aléa moyen) au-dessus du terrain naturel.",
+    },
+
+    GHi: {
+      nouvelles: {
+        lead:
+          "Autorisées, sauf sous-sols et constructions de secours. Zone de crue historique de la Saune : plus de débordement de référence, " +
+          "mais ruissellement et stagnation possibles.",
+        items: [
+          { ref: "3.1", usages: USAGES_TOUS, title: "Étude géotechnique G2 AVP",
+            text: "Obligatoire pour toute construction ou installation nouvelle nécessitant des fondations (affouillements, tassements, érosions)." },
+          { ref: "3.2", usages: USAGES_TOUS, title: "Réseaux d'eaux pluviales et d'assainissement",
+            text: "Rendus étanches, équipés de clapets anti-retour, tampons verrouillés pour les parties pouvant être mises en charge." },
+          { ref: "4", usages: USAGES_TOUS, title: "Recommandation",
+            text: "Surélever le premier plancher de 30 cm par rapport au terrain fini." },
+        ],
+      },
+      existantes: {
+        lead: "Même régime que pour le neuf : pas de distinction construction nouvelle / existante dans cette zone.",
+        items: [
+          { ref: "3.1", usages: USAGES_TOUS, title: "Étude géotechnique G2 AVP",
+            text: "Avant tout projet d'extension ou de construction nécessitant des fondations (norme NF P 94-500)." },
+          { ref: "3.2", usages: USAGES_TOUS, title: "Réseaux d'eaux pluviales et d'assainissement",
+            text: "Rendus étanches, équipés de clapets anti-retour, tampons verrouillés." },
+          { ref: "4", usages: USAGES_TOUS, title: "Recommandation (extension)",
+            text: "Surélever le premier plancher de 30 cm par rapport au terrain fini." },
+        ],
+      },
+      phec: null,
+    },
+  };
+
+  // Retourne { lead, specific[], common[], phec } pour une zone et un
+  // volet ("nouvelles" | "existantes"), ou null si la zone est inconnue
+  // (on retombe alors sur le texte `regime` du GeoJSON).
+  // `specific` = lignes réservées à certains usages (affichées d'abord),
+  // `common` = lignes valables pour tout bâtiment de la zone.
+  function travauxReglesPour(zoneCode, usage, volet) {
+    const z = TRAVAUX_REGLES[zoneCode];
+    if (!z || !z[volet]) return null;
+    const rows = z[volet].items.filter((r) => r.usages.includes(usage));
+    return {
+      lead: z[volet].lead,
+      specific: rows.filter((r) => r.usages.length < USAGES_TOUS.length),
+      common: rows.filter((r) => r.usages.length === USAGES_TOUS.length),
+      phec: z.phec,
+    };
+  }
+
+  function travauxRowHtml(r) {
+    return `<li><strong>${escapeHtml(r.title)}</strong> — ${escapeHtml(r.text)} <span class="travaux-ref">art. ${escapeHtml(r.ref)}</span></li>`;
+  }
+
+  function travauxListHtml(rules, usage) {
+    let html = `<p class="travaux-lead">${escapeHtml(rules.lead)}</p>`;
+    if (usage === "indetermine") {
+      html += `<p class="travaux-note">Usage de votre bâtiment non déterminé : les règles d'habitation et d'activité sont toutes deux présentées. Corrigez l'usage ci-dessus pour ne voir que les vôtres.</p>`;
+    }
+    if (rules.specific.length) {
+      html += `<ul class="travaux-list">${rules.specific.map(travauxRowHtml).join("")}</ul>`;
+    }
+    if (rules.common.length) {
+      html += `<p class="travaux-subhead">Pour tout bâtiment de la zone</p><ul class="travaux-list travaux-list-common">${rules.common.map(travauxRowHtml).join("")}</ul>`;
+    }
+    return html;
+  }
+
   // Sépare le champ `regime` (voir scripts/export_geojson.py) en ses deux
   // volets « Constructions nouvelles » / « Constructions existantes », déjà
   // présents tels quels dans le texte du règlement. Retourne null si le
@@ -809,20 +1082,12 @@
     }
   }
 
-  // Textes repris tels quels de docs/METHODOLOGIE.md (§4, §6), identiques à
-  // ceux déjà utilisés côté données pour les bâtiments classés BD TOPO/BDNB,
-  // afin qu'une correction du visiteur affiche exactement le même libellé
-  // qu'un bâtiment nativement classé dans la même catégorie.
+  // Textes d'éligibilité aux aides (Fonds Barnier), identiques à ceux des
+  // données pour les bâtiments classés BD TOPO/BDNB, afin qu'une correction
+  // du visiteur affiche exactement le même libellé qu'un bâtiment
+  // nativement classé dans la même catégorie. Les règles de travaux, elles,
+  // ne sont pas stockées : elles sont recalculées par usage (TRAVAUX_REGLES).
   const CORRECTION_TEXTS = {
-    obligationsHabitation:
-      "Habitation : extension/changement de destination admis sous reserve " +
-      "(plancher a PHE+20cm, mesures de mitigation) ; reconstruction apres " +
-      "destruction par une crue INTERDITE.",
-    obligationsActivite:
-      "Local d'activite : si ERP 1a3 categorie / etablissement sensible ou " +
-      "strategique, creation et reconstruction INTERDITES (sauf derogation " +
-      "tres encadree). Sinon extension/changement de destination admis a 20% " +
-      "sous conditions (PHE+20cm, diagnostic, mitigation).",
     eligibiliteHabitation:
       "Éligible - habitation : Fonds Barnier (FPRNM) à 80% des travaux de " +
       "prévention prescrits par le PPRi, plafond 36 000 €/bien, sous réserve " +
@@ -853,27 +1118,21 @@
     if (override.typologieCategorie === "individuelle") {
       eff.typologie = "Maison individuelle";
       eff.typologieSource = "déclaré par vous";
-      eff.obligationsTypologie = T.obligationsHabitation;
       eff.eligibiliteFprnm = T.eligibiliteHabitation;
       nbLogements = 1;
     } else if (override.typologieCategorie === "collectif") {
       nbLogements = Math.max(2, parseInt(override.nbLogements, 10) || 2);
       eff.typologie = `Logement collectif (${nbLogements} logements)`;
       eff.typologieSource = "déclaré par vous";
-      eff.obligationsTypologie = T.obligationsHabitation;
       eff.eligibiliteFprnm = T.eligibiliteHabitation;
     } else if (override.typologieCategorie === "activite") {
       eff.typologie = "Entreprise / activité économique";
       eff.typologieSource = "déclaré par vous";
-      eff.obligationsTypologie = T.obligationsActivite;
       eff.eligibiliteFprnm = T.eligibiliteActivite;
       nbLogements = 0;
     } else if (override.typologieCategorie === "annexe") {
       eff.typologie = "Annexe (non habitée)";
       eff.typologieSource = "déclaré par vous";
-      eff.obligationsTypologie = p.annexeMaxM2
-        ? `Annexe : creation limitee a ${p.annexeMaxM2} m2 d'emprise au sol au terrain naturel (une fois depuis l'approbation du PPRi).`
-        : "Annexe : creation limitee en emprise au sol, voir reglement du PPRi.";
       eff.eligibiliteFprnm = T.eligibiliteIndeterminee;
       nbLogements = 0;
     }
@@ -1158,9 +1417,25 @@
       ? `<p><strong>🛟 Zone refuge (en cas d'extension) :</strong> ${escapeHtml(eff.zoneRefuge)}</p>`
       : "";
 
-    const regimeSplit = splitRegime(eff.regime);
+    const rulesNeuf = travauxReglesPour(eff.zoneCode, usage, "nouvelles");
+    const rulesExist = travauxReglesPour(eff.zoneCode, usage, "existantes");
+    const regimeSplit = !rulesNeuf || !rulesExist ? splitRegime(eff.regime) : null;
     let travauxBody;
-    if (regimeSplit) {
+    if (rulesNeuf && rulesExist) {
+      travauxBody = `
+        <div class="travaux-card travaux-card-neuf">
+          <div class="travaux-card-head"><span class="travaux-icon" aria-hidden="true">🏗️</span>Constructions nouvelles</div>
+          ${travauxListHtml(rulesNeuf, usage)}
+        </div>
+        <div class="travaux-card travaux-card-existant">
+          <div class="travaux-card-head"><span class="travaux-icon" aria-hidden="true">🔧</span>Constructions existantes</div>
+          ${travauxListHtml(rulesExist, usage)}
+          ${refugeHtml}
+          ${travauxExtraHtml}
+        </div>
+        ${rulesExist.phec ? `<p class="measure-group-note">${escapeHtml(rulesExist.phec)} Résumé du chapitre 3 du règlement : en cas de doute, le règlement fait foi.</p>` : `<p class="measure-group-note">Résumé du chapitre 3 du règlement : en cas de doute, le règlement fait foi.</p>`}
+      `;
+    } else if (regimeSplit) {
       travauxBody = `
         <div class="travaux-card travaux-card-neuf">
           <div class="travaux-card-head"><span class="travaux-icon" aria-hidden="true">🏗️</span>Constructions nouvelles</div>
@@ -1169,7 +1444,6 @@
         <div class="travaux-card travaux-card-existant">
           <div class="travaux-card-head"><span class="travaux-icon" aria-hidden="true">🔧</span>Constructions existantes</div>
           <p>${escapeHtml(regimeSplit.existantes)}</p>
-          ${eff.obligationsTypologie ? `<p>${escapeHtml(eff.obligationsTypologie)}</p>` : ""}
           ${refugeHtml}
           ${travauxExtraHtml}
         </div>
@@ -1177,7 +1451,6 @@
     } else {
       travauxBody = `
         <p>${escapeHtml(eff.regime || "Consultez le règlement du PPRi pour le régime applicable à ce bâtiment.")}</p>
-        ${eff.obligationsTypologie ? `<p>${escapeHtml(eff.obligationsTypologie)}</p>` : ""}
         ${refugeHtml}
         ${travauxExtraHtml}
       `;

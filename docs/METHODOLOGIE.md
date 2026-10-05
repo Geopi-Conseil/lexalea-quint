@@ -89,13 +89,28 @@ fiche bâtiment.
 
 ## 5. Régime et seuils de travaux
 
-Contrairement à une approche par seuils numériques calculés par bâtiment,
-les seuils de travaux applicables (extensions, annexes, changement de
-destination...) sont donnés **verbatim dans le champ `regime`**, qui
-reprend le texte du règlement de la zone concernée (constructions nouvelles
-/ constructions existantes). Aucun champ `empriseSolM2` séparé n'est donc
-calculé pour cette commune ; l'emprise au sol n'intervient pas dans les
-seuils du règlement de ce PPRi.
+Les seuils de travaux applicables (extensions, annexes, changement de
+destination...) ne sont pas calculés par bâtiment : ils viennent du
+règlement de la zone. Le champ `regime` du GeoJSON en donne le texte
+d'ensemble (constructions nouvelles / existantes), identique pour tous les
+bâtiments d'une zone ; il sert de repli d'affichage.
+
+Le règlement est toutefois un tableau **zone × type de travaux**
+(extension d'habitation, d'annexe, d'établissement sensible, d'ERP ou
+d'activité, agricole...). L'application le reprend dans `TRAVAUX_REGLES`
+(`src/js/app.js`), résumé en langage clair, avec le numéro d'article de
+chaque ligne, et **n'affiche que les lignes qui concernent l'usage du
+bâtiment** (`classifyUsage`, déduit de `typologie`). Quand l'usage est
+indéterminé, les lignes d'habitation et d'activité sont toutes deux
+présentées, avec un rappel pour corriger l'usage. Aucun champ `empriseSolM2`
+n'est calculé : l'emprise n'intervient dans les seuils qu'en pourcentage
+(20 %) ou en m² fixes (20 m²).
+
+Les mesures (chapitre 4) suivent la même logique : le diagnostic de
+vulnérabilité ne concerne que les établissements sensibles (§4.2), les
+mesures obligatoires du §4.3 sont filtrées selon l'usage, et les
+recommandations (§4.5) sont communes, avec une première mesure adaptée à la
+hauteur d'eau estimée.
 
 ## 6. Éligibilité au Fonds Barnier (FPRNM)
 
@@ -247,8 +262,9 @@ annexe non habitée).
 - Le calcul est entièrement effectué **côté client** (JavaScript,
   `src/js/app.js`), avec les **mêmes règles et les mêmes textes** que ceux
   déjà appliqués côté données pour un bâtiment nativement classé dans la
-  même catégorie (zone refuge : §4 ; diagnostic, obligations, éligibilité
-  FPRNM : §6).
+  même catégorie (éligibilité FPRNM : §6). Les mesures et les règles de
+  travaux ne sont pas stockées : elles sont recalculées à partir de l'usage
+  corrigé (§5).
 - La correction est **enregistrée uniquement dans le navigateur du
   visiteur** (`localStorage`, clé `reglo-risques:corrections-batiments:v1`,
   indexée par l'identifiant BD TOPO du bâtiment) : elle n'est **jamais
